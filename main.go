@@ -262,10 +262,10 @@ func streamOllamaRequest(model, prompt string, responseChan chan<- string) error
 }
 
 func printUsage() {
-	fmt.Println("Usage: ollama-cli [--model=<model_name>] <prompt>")
+	fmt.Println("Usage: askme [--model=<model_name>] <prompt>")
 	fmt.Println("\nOptions:")
 	pflag.PrintDefaults()
 	fmt.Println("\nExamples:")
-	fmt.Println("  ollama-cli \"Explain Go channels\"")
-	fmt.Println("  ollama-cli -m codegemma \"What are goroutines?\"")
+	fmt.Println("  askme \"Explain Go channels\"")
+	fmt.Println("  askme -m codegemma \"What are goroutines?\"")
 }
