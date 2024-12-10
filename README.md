@@ -27,13 +27,13 @@ You can use AskMe by running the `askme` command followed by your prompt. You ca
 ### Basic Usage
 
 ```sh
-./askme "Explain Go channels"
+./bin/askme "Explain Go channels"
 ```
 
 ### Specify a Model
 
 ```sh
-./askme --model codegen "What are goroutines?"
+./bin/askme --model codegen "What are goroutines?"
 ```
 
 ### Help
@@ -41,7 +41,7 @@ You can use AskMe by running the `askme` command followed by your prompt. You ca
 To display help information, use the `--help` flag:
 
 ```sh
-./askme --help
+./bin/askme --help
 ```
 
 ## Configuration
@@ -55,7 +55,7 @@ default_model: your_default_model_name
 ## Example
 
 ```sh
-./askme "What is the capital of France?"
+./bin/askme "What is the capital of France?"
 ```
 
 ## License
