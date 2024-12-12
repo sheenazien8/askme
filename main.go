@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
 )
@@ -147,17 +148,10 @@ func main() {
 	}
 
 	if prompt == "" {
-		fmt.Print("Please enter the prompt: ")
-		reader := bufio.NewReader(os.Stdin)
-		prompt, err = reader.ReadString('\n')
+		form := buildPromptForm(&prompt)
+		err := form.Run()
 		if err != nil {
-			fmt.Printf("Error: Could not read prompt: %v\n", err)
-			os.Exit(1)
-		}
-		prompt = strings.TrimSpace(prompt)
-		if prompt == "" {
-			fmt.Println("Error: A prompt is required")
-			printUsage()
+			fmt.Printf("Error: Could not run form: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -197,6 +191,24 @@ func main() {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func buildPromptForm(prompt *string) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Placeholder("Enter a prompt").
+				Value(prompt).
+				Validate(func(s string) error {
+
+					s = strings.TrimSpace(s)
+					if s == "" {
+						return fmt.Errorf("A prompt is required")
+					}
+					return nil
+				}),
+		),
+	)
 }
 
 func streamOllamaRequest(model, prompt string, responseChan chan<- string) error {
