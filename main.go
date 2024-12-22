@@ -189,6 +189,12 @@ func main() {
 	go func() {
 		switch *provider {
 		case "ollama":
+            if !isOllamaInstalled() {
+                err := installOllama()
+                if err != nil {
+                    errChan <- fmt.Errorf("failed to install Ollama: %v", err)
+                }
+            }
 			err := streamOllamaRequest(*model, prompt, responseChan)
 			if err != nil {
 				errChan <- err
