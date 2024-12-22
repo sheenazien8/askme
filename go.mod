@@ -1,4 +1,4 @@
-module ollama-wrapper
+module askme
 
 go 1.22.1
 

@@ -49,7 +49,9 @@ To display help information, use the `--help` flag:
 You can set a default model in the configuration file located at `~/.config/askme/config.yaml`. The configuration file should be in YAML format and contain the following structure:
 
 ```yaml
+provider: ollama | mistral
 default_model: your_default_model_name
+mistral_api_key: <if you using mistral>
 ```
 
 ## Example
