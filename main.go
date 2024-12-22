@@ -19,7 +19,40 @@ import (
 )
 
 type Config struct {
-	DefaultModel string `yaml:"default_model"`
+	Provider      string `yaml:"provider"`
+	DefaultModel  string `yaml:"default_model"`
+	OllamaURL     string `yaml:"ollama_url"`
+	MistralAPIKey string `yaml:"mistral_api_key"`
+}
+
+type MistralRequest struct {
+	Model    string           `json:"model"`
+	Messages []MistralMessage `json:"messages"`
+	Stream   bool             `json:"stream"`
+}
+
+type MistralMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type MistralResponse struct {
+	Id      string          `json:"id"`
+	Object  string          `json:"object"`
+	Created int64           `json:"created"`
+	Model   string          `json:"model"`
+	Choices []MistralChoice `json:"choices"`
+}
+
+type MistralChoice struct {
+	Index        int          `json:"index"`
+	Delta        MistralDelta `json:"delta"`
+	FinishReason *string      `json:"finish_reason"`
+}
+
+type MistralDelta struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 type OllamaRequest struct {
@@ -108,30 +141,13 @@ func installOllama() error {
 }
 
 func main() {
-	if !isOllamaInstalled() {
-		fmt.Println("Ollama is not installed.")
-		fmt.Print("Do you want to install it now? (y/n): ")
-		var response string
-		fmt.Scanln(&response)
-		if response == "y" || response == "Y" {
-			err := installOllama()
-			if err != nil {
-				fmt.Printf("Error: Could not install Ollama: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Println("Ollama installed successfully.")
-		} else {
-			fmt.Println("Please install Ollama and try again.")
-			os.Exit(1)
-		}
-	}
-
 	config, err := readConfig()
 	if err != nil {
 		fmt.Printf("Warning: Could not read config file: %v\n", err)
 	}
 
-	model := pflag.StringP("model", "m", config.DefaultModel, "Ollama model to use (can be set in config)")
+	provider := pflag.StringP("provider", "p", config.Provider, "Provider to use (ollama or mistral)")
+	model := pflag.StringP("model", "m", config.DefaultModel, "Model to use (can be set in config)")
 	help := pflag.BoolP("help", "h", false, "Show help information")
 
 	pflag.Parse()
@@ -168,10 +184,22 @@ func main() {
 	responseChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
+    fmt.Printf("Using provider: %s\n", *provider)
+
 	go func() {
-		err := streamOllamaRequest(*model, prompt, responseChan)
-		if err != nil {
-			errChan <- err
+		switch *provider {
+		case "ollama":
+			err := streamOllamaRequest(*model, prompt, responseChan)
+			if err != nil {
+				errChan <- err
+			}
+		case "mistral":
+			err := streamMistralRequest(config.MistralAPIKey, *model, prompt, responseChan)
+			if err != nil {
+				errChan <- err
+			}
+		default:
+			errChan <- fmt.Errorf("unsupported provider: %s", *provider)
 		}
 	}()
 
@@ -179,6 +207,7 @@ func main() {
 	case firstResponse := <-responseChan:
 		spinner.Stop()
 
+		fmt.Printf("Question: %s\n", prompt)
 		fmt.Print(firstResponse)
 
 		for response := range responseChan {
@@ -267,6 +296,82 @@ func streamOllamaRequest(model, prompt string, responseChan chan<- string) error
 		if ollamaResp.Done {
 			close(responseChan)
 			break
+		}
+	}
+
+	return nil
+}
+
+func streamMistralRequest(apiKey, model, prompt string, responseChan chan<- string) error {
+	requestBody := MistralRequest{
+		Model:  model,
+		Stream: true,
+		Messages: []MistralMessage{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+	}
+
+	jsonPayload, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to create JSON payload: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request to Mistral: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Mistral API returned error status: %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("error reading response: %v", err)
+		}
+
+		if len(line) == 0 {
+			continue
+		}
+
+		startIndex := bytes.IndexByte(line, '{')
+		if startIndex == -1 {
+			continue
+		}
+
+		var mistralResp MistralResponse
+		err = json.Unmarshal(line[startIndex:], &mistralResp)
+		if err != nil {
+			return fmt.Errorf("failed to parse Mistral response: %v", err)
+		}
+
+		if len(mistralResp.Choices) > 0 {
+			choice := mistralResp.Choices[0]
+			if choice.Delta.Content != "" {
+				responseChan <- choice.Delta.Content
+			}
+			if choice.FinishReason != nil && *choice.FinishReason == "stop" {
+				close(responseChan)
+				break
+			}
 		}
 	}
 
