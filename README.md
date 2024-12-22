@@ -1,3 +1,6 @@
+# AskMe 
+No more laziness searching for answers on the internet or the whole thing with AI. With AskMe, find anything through the terminal easily. Simple and efficient: search, get answers, and get on with your work without excessive chatter.
+
 ```go
 # AskMe CLI
 
