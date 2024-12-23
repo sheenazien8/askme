@@ -10,7 +10,7 @@ all: build
 # Build the binary and move it to the bin/ folder
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@go build -o $(OUTPUT_DIR)/$(BINARY_NAME) main.go
+	@go build -o $(OUTPUT_DIR)/$(BINARY_NAME) ./cmd/askme/main.go
 	@echo "Build complete. Binary is located at $(OUTPUT_DIR)/$(BINARY_NAME)"
 
 # Clean the bin/ directory

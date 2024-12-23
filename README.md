@@ -73,10 +73,9 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 Here are some planned features and improvements for future releases:
 
 - [ ] Implement logic ollama installation
-- [ ] Implement caching for faster responses
 - [ ] Add unit tests and improve test coverage
 - [ ] Enhance error handling and user feedback
-- [ ] Add provider support
+- [x] Add provider support
 
 ## Acknowledgements
 
