@@ -22,7 +22,9 @@ func main() {
 
 	provider := pflag.StringP("provider", "p", config.Provider, "Provider to use (ollama or mistral)")
 	model := pflag.StringP("model", "m", config.DefaultModel, "Model to use (can be set in config)")
+	file := pflag.StringP("file", "f", "", "File to use as input")
 	help := pflag.BoolP("help", "h", false, "Show help information")
+	roleSystem := pflag.StringP("role", "r", config.RoleSystem, "Role to use for the system message")
 
 	pflag.Parse()
 
@@ -68,12 +70,23 @@ func main() {
 					errChan <- fmt.Errorf("failed to install Ollama: %v", err)
 				}
 			}
-			err := ollama.StreamOllamaRequest(config.OllamaURL, *model, prompt, responseChan)
+			err := ollama.StreamOllamaRequest(ollama.Args{
+				URL:    config.OllamaURL,
+				Model:  *model,
+				Prompt: prompt,
+				Role:   *roleSystem,
+			}, responseChan)
 			if err != nil {
 				errChan <- err
 			}
 		case "mistral":
-			err := mistral.StreamMistralRequest(config.MistralAPIKey, *model, prompt, responseChan)
+			err := mistral.StreamMistralRequest(mistral.Args{
+				Model:  *model,
+				Role:   *roleSystem,
+				Prompt: prompt,
+				ApiKey: config.MistralAPIKey,
+				File:   *file,
+			}, responseChan)
 			if err != nil {
 				errChan <- err
 			}
@@ -100,4 +113,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-

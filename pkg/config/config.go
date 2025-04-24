@@ -13,6 +13,7 @@ type Config struct {
 	DefaultModel  string `yaml:"default_model"`
 	OllamaURL     string `yaml:"ollama_url"`
 	MistralAPIKey string `yaml:"mistral_api_key"`
+	RoleSystem    string `yaml:"role_system"`
 }
 
 func ReadConfig() (*Config, error) {
@@ -37,7 +38,9 @@ func ReadConfig() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %v", err)
 	}
+	if config.OllamaURL == "" {
+		config.OllamaURL = "http://localhost:11434/api/generate"
+	}
 
 	return &config, nil
 }
-

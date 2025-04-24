@@ -19,9 +19,11 @@ type MistralRequest struct {
 }
 
 type MistralMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
 }
+
+type MistralFileMessage map[string]interface{}
 
 type MistralResponse struct {
 	Id      string          `json:"id"`
@@ -42,14 +44,26 @@ type MistralDelta struct {
 	Content string `json:"content"`
 }
 
-func StreamMistralRequest(apiKey, model, prompt string, responseChan chan<- string) error {
-	requestBody := &MistralRequest{
-		Model:  model,
+type Args struct {
+	ApiKey string
+	Model  string
+	Prompt string
+	File   string
+	Role   string
+}
+
+func StreamMistralRequest(args Args, responseChan chan<- string) error {
+	requestBody := MistralRequest{
+		Model:  args.Model,
 		Stream: true,
 		Messages: []MistralMessage{
 			{
+				Role:    "system",
+				Content: args.Role,
+			},
+			{
 				Role:    "user",
-				Content: prompt,
+				Content: args.Prompt,
 			},
 		},
 	}
@@ -60,7 +74,7 @@ func StreamMistralRequest(apiKey, model, prompt string, responseChan chan<- stri
 
 	resp, err := apiClient.
 		SetHeaders(map[string]string{
-			"Authorization": fmt.Sprintf("Bearer %s", apiKey),
+			"Authorization": fmt.Sprintf("Bearer %s", args.ApiKey),
 		}).
 		Stream(func(resp *http.Response) error {
 			if resp.StatusCode != http.StatusOK {
@@ -106,10 +120,10 @@ func StreamMistralRequest(apiKey, model, prompt string, responseChan chan<- stri
 			}
 			return nil
 		}).
-        Post("/v1/chat/completions", requestBody)
+		Post("/v1/chat/completions", requestBody)
 
 	if err != nil {
-        log.Printf("Generate curl command: %s", resp.Request.GenerateCurlCommand())
+		log.Printf("Generate curl command: %s", resp.Request.GenerateCurlCommand())
 
 		return fmt.Errorf("failed to send request to Mistral API: %v", err)
 	}

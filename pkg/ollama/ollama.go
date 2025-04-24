@@ -15,6 +15,7 @@ import (
 type OllamaRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
+    System string `json:"system"`
 }
 
 type OllamaResponse struct {
@@ -22,14 +23,22 @@ type OllamaResponse struct {
 	Done     bool   `json:"done"`
 }
 
-func StreamOllamaRequest(url, model, prompt string, responseChan chan<- string) error {
+type Args struct {
+	URL    string
+	Model  string
+	Prompt string
+	Role   string
+}
+
+func StreamOllamaRequest(args Args, responseChan chan<- string) error {
 	requestBody := OllamaRequest{
-		Model:  model,
-		Prompt: prompt,
+		Model:  args.Model,
+		Prompt: args.Prompt,
+        System: args.Role,
 	}
 
 	apiClient := vortex.New(vortex.Opt{
-		BaseURL: url,
+		BaseURL: args.URL,
 	})
 
 	resp, err := apiClient.
