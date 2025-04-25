@@ -44,29 +44,36 @@ type MistralDelta struct {
 	Content string `json:"content"`
 }
 
+// Args contains parameters for a Mistral API request, including optional chat history.
 type Args struct {
-	ApiKey string
-	Model  string
-	Prompt string
-	File   string
-	Role   string
+   ApiKey   string
+   Model    string
+   // Prompt is the user input for one-shot requests; ignored if Messages is provided.
+   Prompt   string
+   // File path for file-based input; ignored in chat mode.
+   File     string
+   // Role is the system role content for one-shot requests; ignored if Messages is provided.
+   Role     string
+   // Messages is the slice of chat messages for multi-turn conversations; if non-empty, Prompt and Role are ignored.
+   Messages []MistralMessage
 }
 
 func StreamMistralRequest(args Args, responseChan chan<- string) error {
-	requestBody := MistralRequest{
-		Model:  args.Model,
-		Stream: true,
-		Messages: []MistralMessage{
-			{
-				Role:    "system",
-				Content: args.Role,
-			},
-			{
-				Role:    "user",
-				Content: args.Prompt,
-			},
-		},
-	}
+   // Build messages: use provided history if available, else single-turn conversation
+   var messages []MistralMessage
+   if len(args.Messages) > 0 {
+       messages = args.Messages
+   } else {
+       messages = []MistralMessage{
+           {Role: "system", Content: args.Role},
+           {Role: "user", Content: args.Prompt},
+       }
+   }
+   requestBody := MistralRequest{
+       Model:    args.Model,
+       Stream:   true,
+       Messages: messages,
+   }
 
 	apiClient := vortex.New(vortex.Opt{
 		BaseURL: "https://api.mistral.ai",
