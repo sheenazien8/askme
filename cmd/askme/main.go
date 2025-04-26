@@ -77,36 +77,6 @@ func buildContext(root string) (string, error) {
 	return builder.String(), err
 }
 
-func applyOneShotContext(provider string, contextFlag bool, roleSystem, prompt string) (newRole, newPrompt string, messages []mistral.MistralMessage, err error) {
-	if !contextFlag {
-		return roleSystem, prompt, nil, nil
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return roleSystem, prompt, nil, err
-	}
-	ctx, err := buildContext(cwd)
-	if err != nil {
-		return roleSystem, prompt, nil, err
-	}
-	header := "You are now in code context mode. Files listed below include their contents with line numbers. Refer to file paths and line numbers when answering."
-	if provider == "mistral" {
-		sys := header + "\n\n" + ctx
-		messages = []mistral.MistralMessage{
-			{Role: "system", Content: sys},
-			{Role: "user", Content: prompt},
-		}
-		return "", prompt, messages, nil
-	}
-	newRole = roleSystem
-	if newRole != "" {
-		newRole = newRole + "\n\n" + header + "\n\n" + ctx
-	} else {
-		newRole = header + "\n\n" + ctx
-	}
-	return newRole, prompt, nil, nil
-}
-
 func applyChatContext(provider string, contextFlag bool, roleSystem string) (newRole string, initialHistory []mistral.MistralMessage, err error) {
 	newRole = roleSystem
 	if !contextFlag {
@@ -223,11 +193,11 @@ func main() {
 			}
 		case "mistral":
 			err := mistral.StreamMistralRequest(mistral.Args{
-				Model:    *model,
-				Role:     *roleSystem,
-				Prompt:   prompt,
-				ApiKey:   config.MistralAPIKey,
-				File:     *file,
+				Model:  *model,
+				Role:   *roleSystem,
+				Prompt: prompt,
+				ApiKey: config.MistralAPIKey,
+				File:   *file,
 			}, responseChan)
 			if err != nil {
 				errChan <- err
@@ -337,80 +307,11 @@ func runChat(cfg *config.Config, provider, model, roleSystem string, contextFlag
 		}
 	}
 	var mistralHistory []mistral.MistralMessage
+	var err error
 	if contextFlag {
-		cwd, err := os.Getwd()
+		roleSystem, mistralHistory, err = applyChatContext(provider, contextFlag, roleSystem)
 		if err != nil {
-			fmt.Printf("Warning: could not get working directory: %v\n", err)
-		} else {
-			var builder strings.Builder
-			_ = filepath.Walk(cwd, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if info.IsDir() {
-					base := filepath.Base(path)
-					if base == ".git" || base == "bin" || base == "vendor" {
-						return filepath.SkipDir
-					}
-					return nil
-				}
-				var ext string
-				if strings.HasSuffix(path, ".blade.php") {
-					ext = ".blade.php"
-				} else {
-					ext = filepath.Ext(path)
-				}
-				switch ext {
-				case ".blade.php", ".go", ".md", ".txt", ".yaml", ".yml", ".php", ".env", ".json":
-				default:
-					return nil
-				}
-				data, err := os.ReadFile(path)
-				if err != nil {
-					return nil
-				}
-				builder.WriteString(fmt.Sprintf("File: %s (%d lines)\n", path, strings.Count(string(data), "\n")+1))
-				lang := ""
-				switch ext {
-				case ".blade.php":
-					lang = "html"
-				case ".go":
-					lang = "go"
-				case ".md":
-					lang = "markdown"
-				case ".yaml", ".yml":
-					lang = "yaml"
-				case ".php":
-					lang = "php"
-				case ".json":
-					lang = "json"
-				default:
-					lang = ""
-				}
-				if lang != "" {
-					builder.WriteString(fmt.Sprintf("```%s\n", lang))
-				} else {
-					builder.WriteString("```\n")
-				}
-				lines := strings.Split(string(data), "\n")
-				for i, line := range lines {
-					builder.WriteString(fmt.Sprintf("%4d: %s\n", i+1, line))
-				}
-				builder.WriteString("```\n\n")
-				return nil
-			})
-			context := builder.String()
-			header := "You are now in code context mode. The following files include their contents with line numbers. Please refer to the specific file and line numbers when answering."
-			if provider == "mistral" {
-				sysMsg := header + "\n\n" + context
-				mistralHistory = append([]mistral.MistralMessage{{Role: "system", Content: sysMsg}}, mistralHistory...)
-			} else {
-				if roleSystem != "" {
-					roleSystem = roleSystem + "\n\n" + header + "\n\n" + context
-				} else {
-					roleSystem = header + "\n\n" + context
-				}
-			}
+			return err
 		}
 	}
 	style := lipgloss.NewStyle().
